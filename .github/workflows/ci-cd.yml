@@ -81,4 +81,4 @@ jobs:
         run: |
           IMAGE_TAG=ghcr.io/${{ env.REPO_LOWER }}:latest
           docker build -t $IMAGE_TAG .
-          docker push -t $IMAGE_TAG
+          docker push $IMAGE_TAG
