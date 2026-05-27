@@ -82,3 +82,27 @@ jobs:
           IMAGE_TAG=ghcr.io/${{ env.REPO_LOWER }}:latest
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
+  deploy-staging:
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convert repository name to lowercase
+        run: |
+          echo "REPO_LOWER=$(echo '${{github.repository}}' |  tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Blue-green deploy to production
+        run: |
+          VERSION=${{github.event.inputs.version}}
+          if [ -z "$VERSION"]; then VERSION="latest";fi
+          IMAGE=ghcr.io/${{ env.REPO_LOWER }}:$VERSION
+
+          docker run -d --name app-green -p 8081:8080 $IMAGE
+          sleep 5
+          curl --retry 5 --retry-delay 2 --fail http://localhost:8081/health || exit 1
+
+          docker stop app-blue 2>/dev/null ||true
+
+          docker run -d --name app-blue -p 8080:8080 $IMAGE
+          sleep 3
+          curl --fail http://localhost:8080/health || exit 1
